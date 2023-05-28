@@ -1,0 +1,92 @@
+﻿@inherits ErrorBoundary
+@if (ChildContentIsViewable) //this is viewable when the exception did NOT occur in a render method such as OnInitialized(Async)/OnAfterRender(Async)
+{
+    @ChildContent
+}
+else
+{
+
+    Exception? ex = CurrentException?.StackTrace is null ? CurrentException?.GetBaseException() : CurrentException;
+    <div class="container-fluid">
+        <div class="d-flex flex-column mt-3">
+            <div class="d-flex flex-row justify-content-between">
+                <h4 class="err-msg">
+                    @($"**Exception at <u>{ex.Source}</u>".ToMarkupString())
+                </h4>
+                @if (ex.Message.Contains("EXEC "))
+                {
+                    <a onclick="navigator.clipboard.writeText(document.getElementById('exec').innerText);" role="button" class="btn btn-danger">Copy SQL</a>
+                }
+            </div>
+            <div class="d-flex flex-row">
+                <table class="table table-light">
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold text-nowrap">
+                                Message:
+                            </td>
+                            <td>
+                                @{
+                                    if (ex.Message.IsNullOrEmpty())
+                                    {
+                                        <span>Not Available</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (string str in ex.Message.Replace(@"\""", @"""").Split("<br/>"))
+                                        {
+                                            string ID = str.Contains("EXEC ") ? "exec" : string.Empty;
+                                            <div id="@ID">@str.ToMarkupString()</div>
+                                        }
+                                    }
+                                }
+                            </td>
+                        </tr>
+                        @if (ex.InnerException != null)
+                        {
+                            <tr>
+                                <td class="fw-bold text-nowrap">
+                                    Inner Exception:
+                                </td>
+                                <td>
+                                    @ex.InnerException.Message.ToMarkupString()
+                                </td>
+                            </tr>
+                        }
+                        <tr>
+                            <td class="fw-bold text-nowrap">
+                                StackTrace:
+                            </td>
+                            <td id="stackTrack">
+                                @(ex.StackTrace.IsNullOrEmpty() ? (ex.InnerException.StackTrace.IsNullOrEmpty() ? "Not Available" : ex.InnerException.StackTrace) : ex.StackTrace)
+                            </td>
+                        </tr>
+                        @if (ex.HelpLink != null)
+                        {
+                            <tr>
+                                <td class="fw-bold text-nowrap">
+                                    Help Link:
+                                </td>
+                                <td>
+                                    <a class="link-info" href="@ex.HelpLink">Microsoft Help Article</a>
+                                </td>
+                            </tr>
+                        }
+                        <tr>
+                            <td class="fw-bold text-nowrap">
+                                HResult:
+                            </td>
+                            <td>
+                                @ex.HResult
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex flex-row">
+                <button type="button" class="btn btn-primary" @onclick="Recover">Reload</button>
+                <h4 class="err-msg ms-5">@LogID</h4>
+            </div>
+        </div>
+    </div>
+}

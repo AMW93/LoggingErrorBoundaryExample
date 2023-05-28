@@ -1,0 +1,55 @@
+﻿@*this is your 'CascadingAppState'. The layout or page components just have a CascadingParameter declared within to access *@
+<CascadingValue TValue="User" Value="User">
+    <CustomErrorBoundary OnLogging="LogTFOutOfThatError">
+        <Router AppAssembly="@typeof(App).Assembly">
+            <Found Context="routeData">
+                @*<AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />*@
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            </Found>
+            <NotFound>
+                <PageTitle>Not found</PageTitle>
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </NotFound>
+        </Router>
+    </CustomErrorBoundary>
+</CascadingValue>
+
+@code {
+    [Inject] public HttpClient client { get; set; } = default!;
+    [Inject] public IBrowserStorage BrowserStorage { get; set; } = default!;
+
+    public User User { get; set; } = new();
+
+    private async Task LogTFOutOfThatError(Exception Ex)
+    {
+        User = await BrowserStorage.Session.GetItemAsync<User>("User"); //my custom library for accessing browser storage. Nothing fancy here just deserializing the object into an object of the User class
+        string logID = RandomIdGenerator.GetRand(6); //I add these logID for our helpdesk ticketing system, it's easier than a Guid and a bit more elegant. Just makes searching the logs a lot easier.
+        StringBuilder sb = new();
+        sb.AppendLine();
+        sb.AppendLine($"** ERROR **** {DateTime.Now} **");
+        if (Ex != null)
+        {
+            sb.AppendLine($"Message: {Ex.Message}");
+
+            Exception realerror = Ex;
+            int exceptionNum = 0;
+            while (realerror.InnerException != null)
+            {
+                sb.AppendLine($"Inner Exception {exceptionNum}: {realerror.InnerException.Message}");
+                exceptionNum++;
+                realerror = realerror.InnerException;
+            }
+
+            sb.AppendLine($"Exception Type: {Ex.GetType()}");
+            sb.AppendLine($"Source Object: {Ex.Source ?? "source not available"}");
+            sb.AppendLine($"Method Name: {Ex.TargetSite?.Name ?? "name not available"}");
+            sb.AppendLine($"Stack Trace: {Ex.StackTrace ?? "stack trace not available"}");
+        }
+
+        sb.AppendLine(User?.ToJson()); //this is just an extension method I wrote to that does basic JsonSerializer.Serialize<T>(JsonSerializerOptions options) behind the scenes
+        sb.AppendLine($"LogID: {(logID.IsNullOrEmpty() ? "Log ID Not Created/Sent" : logID)}    ************END************");
+
+        //at this point call your logging function if you're running Blazor Server
+        //if you're running wasm call your logging API and pass it whatever. I threw this together as an example
+    }
+}
